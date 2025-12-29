@@ -11,7 +11,7 @@ st.title("Relapse Guard - Proof of Concept")
 # Groq cloud AI
 api_key = st.secrets["GROQ_API_KEY"]
 client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=api_key)
-model = "llama3-70b-8192"
+model = "llama-3.3-70b-versatile"
 
 # Dummy data generation
 if 'data_generated' not in st.session_state:
