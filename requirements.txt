@@ -3,3 +3,6 @@ pandas
 plotly
 openai
 matplotlib
+matplotlib
+ollama
+ollama
