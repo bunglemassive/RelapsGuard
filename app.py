@@ -3,14 +3,11 @@ import plotly.express as px
 import pandas as pd
 import numpy as np
 
-# Page configuration
 st.set_page_config(page_title="Nervosense Dashboard", page_icon="🧠", layout="wide")
 
-# Header
 st.title("🧠 Nervosense – Your Nervous System Dashboard")
 st.markdown("Real-time view of HRV trends, sleep patterns, recovery states, stress signatures, and body budget fluctuations.")
 
-# Dummy data for demonstration (replace with real wearable integration later)
 dates = pd.date_range("2026-01-01", periods=7, freq="D")
 df = pd.DataFrame({
     "Date": dates,
@@ -21,7 +18,6 @@ df = pd.DataFrame({
     "Body Budget": np.cumsum(np.random.normal(0, 5, 7))
 })
 
-# Dashboard layout
 col1, col2 = st.columns(2)
 
 with col1:
@@ -42,7 +38,6 @@ with col2:
     fig_budget = px.area(df, x="Date", y="Body Budget", title="Daily Body Budget")
     st.plotly_chart(fig_budget, use_container_width=True)
 
-# Summary metrics
 st.header("Key Insights")
 col_a, col_b, col_c, col_d = st.columns(4)
 col_a.metric("Average HRV", f"{df['HRV (ms)'].mean():.1f} ms")
