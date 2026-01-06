@@ -3,6 +3,6 @@ pandas
 plotly
 openai
 matplotlib
-matplotlib
 ollama
-ollama
+streamlit
+groq

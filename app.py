@@ -1,86 +1,68 @@
 import streamlit as st
-import pandas as pd
-import plotly.express as px
-import random
-from datetime import datetime, timedelta
+from groq import Groq
 
-st.set_page_config(page_title="Relapse Guard PoC", layout="wide")
-st.title("Relapse Guard - Proof of Concept")
+# Page configuration
+st.set_page_config(
+    page_title="RelapsGuard",
+    page_icon="🛡️",
+    layout="centered"
+)
 
-# Groq cloud AI
-api_key = st.secrets["GROQ_API_KEY"]
-client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=api_key)
-model = "llama-3.1-8b-instant"
+# Initialise Groq client securely using Streamlit secrets
+@st.cache_resource
+def get_groq_client():
+    try:
+        api_key = st.secrets["GROQ_API_KEY"]
+    except FileNotFoundError:
+        st.error("GROQ_API_KEY not found in Streamlit secrets. Please add it in the app settings.")
+        st.stop()
+    except KeyError:
+        st.error("GROQ_API_KEY missing from secrets.")
+        st.stop()
+    return Groq(api_key=api_key)
 
-# Dummy data generation
-if 'data_generated' not in st.session_state:
-    centres = ["Cape Town Rehab", "Johannesburg Recovery", "Durban Wellness", "Pretoria Healing"]
-    addictions = ["Alcohol", "Opioids", "Stimulants", "Cannabis", "Gambling"]
-    patients = []
-    for i in range(1,201):
-        centre = random.choice(centres)
-        addiction = random.choice(addictions)
-        history_days = 60
-        history = []
-        base_risk = random.uniform(0.15, 0.6)
-        for d in range(history_days):
-            date = (datetime.now() - timedelta(days=history_days-d)).strftime("%Y-%m-%d")
-            heart_rate = random.randint(60, 100) + random.randint(-15,30)
-            breathing = random.randint(12,20) if heart_rate < 110 else random.randint(8,16)
-            activity = random.randint(2000,15000)
-            risk = max(0.1, min(0.9, base_risk + random.uniform(-0.15,0.15)))
-            history.append({"date": date, "heart_rate": heart_rate, "breathing": breathing, "activity": activity, "risk": risk})
-        patients.append({
-            "id": i,
-            "name": f"Patient {i}",
-            "addiction": addiction,
-            "centre": centre,
-            "current_risk": history[-1]["risk"],
-            "journal": [f"Day {d}: Sample reflection." for d in range(1,8)],
-            "history": history
-        })
-    st.session_state.patients = patients
-    st.session_state.data_generated = True
+client = get_groq_client()
 
-# Summary & At-Risk
-all_patients_df = pd.DataFrame([{"Name": p["name"], "Centre": p["centre"], "Addiction": p["addiction"], "Current Risk": round(p["current_risk"],2)} for p in st.session_state.patients])
-at_risk_df = all_patients_df[all_patients_df["Current Risk"] > 0.3].sort_values("Current Risk", ascending=False)
+# App header
+st.title("🛡️ RelapsGuard")
+st.markdown("Your nervous system monitoring and relapse prevention assistant powered by Groq.")
 
-st.header("Summary")
-col1, col2, col3 = st.columns(3)
-col1.metric("Total Patients", len(st.session_state.patients))
-col2.metric("At Risk (>0.3)", len(at_risk_df))
-col3.metric("Critical (>0.6)", len(all_patients_df[all_patients_df["Current Risk"] > 0.6]))
+# Initialise session state for chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "system", "content": "You are RelapsGuard, a compassionate and knowledgeable assistant specialising in nervous system regulation, stress management, and relapse prevention. Use physiological insights, empathy, and practical strategies in your responses."}
+    ]
 
-st.header("At-Risk Patients")
-st.dataframe(at_risk_df.style.background_gradient(cmap="Reds", subset=["Current Risk"]))
+# Display previous messages
+for message in st.session_state.messages[1:]:  # Skip system prompt
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# Drill-Down
-st.header("Patient Drill-Down")
-patient_name = st.selectbox("Select Patient", [p["name"] for p in st.session_state.patients])
-patient = next(p for p in st.session_state.patients if p["name"] == patient_name)
+# Chat input
+if prompt := st.chat_input("How are you feeling today, or what would you like support with?"):
+    # Add user message
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-df_hist = pd.DataFrame(patient["history"])
-col1, col2 = st.columns(2)
-with col1:
-    fig_risk = px.line(df_hist, x="date", y="risk", title="Risk Trend")
-    st.plotly_chart(fig_risk, use_container_width=True)
-    fig_hr = px.line(df_hist, x="date", y="heart_rate", title="Heart Rate")
-    st.plotly_chart(fig_hr, use_container_width=True)
-with col2:
-    fig_breath = px.line(df_hist, x="date", y="breathing", title="Breathing Rate")
-    st.plotly_chart(fig_breath, use_container_width=True)
-    fig_act = px.line(df_hist, x="date", y="activity", title="Activity")
-    st.plotly_chart(fig_act, use_container_width=True)
+    # Generate assistant response
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            response = client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=st.session_state.messages,
+                temperature=0.7,
+                max_tokens=800
+            )
+            reply = response.choices[0].message.content
+            st.markdown(reply)
 
-st.write("**Journals**")
-for entry in patient["journal"]:
-    st.text(entry)
+    # Add assistant reply to history
+    st.session_state.messages.append({"role": "assistant", "content": reply})
 
-if st.button("Analyse Patient Record with AI"):
-    prompt = f"Analyse {patient['name']} ({patient['addiction']}): Risk {patient['current_risk']:.2f}. Last 14 days metrics: {df_hist.tail(14).to_dict('records')}. Journals: {patient['journal']}. Provide relapse insights, anomalies, forecast, recommendations."
-    with st.spinner("AI analysing..."):
-        response = client.chat.completions.create(model=model, messages=[{"role": "user", "content": prompt}])
-        st.markdown(response.choices[0].message.content)
-
-st.info("PoC with dummy data. AI via Groq cloud.")
+# Sidebar information
+with st.sidebar:
+    st.header("About RelapsGuard")
+    st.info("This app provides real-time support for nervous system awareness and relapse prevention using advanced AI.")
+    st.caption("Powered by Llama 3.1 8B Instant via Groq")
+    st.caption("Model: llama-3.1-8b-instant")
