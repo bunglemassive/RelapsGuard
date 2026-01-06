@@ -1,68 +1,53 @@
 import streamlit as st
-from groq import Groq
+import plotly.express as px
+import pandas as pd
+import numpy as np
 
 # Page configuration
-st.set_page_config(
-    page_title="RelapsGuard",
-    page_icon="🛡️",
-    layout="centered"
-)
+st.set_page_config(page_title="Nervosense Dashboard", page_icon="🧠", layout="wide")
 
-# Initialise Groq client securely using Streamlit secrets
-@st.cache_resource
-def get_groq_client():
-    try:
-        api_key = st.secrets["GROQ_API_KEY"]
-    except FileNotFoundError:
-        st.error("GROQ_API_KEY not found in Streamlit secrets. Please add it in the app settings.")
-        st.stop()
-    except KeyError:
-        st.error("GROQ_API_KEY missing from secrets.")
-        st.stop()
-    return Groq(api_key=api_key)
+# Header
+st.title("🧠 Nervosense – Your Nervous System Dashboard")
+st.markdown("Real-time view of HRV trends, sleep patterns, recovery states, stress signatures, and body budget fluctuations.")
 
-client = get_groq_client()
+# Dummy data for demonstration (replace with real wearable integration later)
+dates = pd.date_range("2026-01-01", periods=7, freq="D")
+df = pd.DataFrame({
+    "Date": dates,
+    "HRV (ms)": np.random.normal(60, 10, 7),
+    "Sleep Score": np.random.randint(70, 95, 7),
+    "Stress Level": np.random.uniform(0, 10, 7),
+    "Recovery (%)": np.random.randint(50, 100, 7),
+    "Body Budget": np.cumsum(np.random.normal(0, 5, 7))
+})
 
-# App header
-st.title("🛡️ RelapsGuard")
-st.markdown("Your nervous system monitoring and relapse prevention assistant powered by Groq.")
+# Dashboard layout
+col1, col2 = st.columns(2)
 
-# Initialise session state for chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "system", "content": "You are RelapsGuard, a compassionate and knowledgeable assistant specialising in nervous system regulation, stress management, and relapse prevention. Use physiological insights, empathy, and practical strategies in your responses."}
-    ]
+with col1:
+    st.subheader("HRV Trends")
+    fig_hrv = px.line(df, x="Date", y="HRV (ms)", title="Heart Rate Variability")
+    st.plotly_chart(fig_hrv, use_container_width=True)
 
-# Display previous messages
-for message in st.session_state.messages[1:]:  # Skip system prompt
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    st.subheader("Sleep Patterns")
+    fig_sleep = px.bar(df, x="Date", y="Sleep Score", title="Daily Sleep Score")
+    st.plotly_chart(fig_sleep, use_container_width=True)
 
-# Chat input
-if prompt := st.chat_input("How are you feeling today, or what would you like support with?"):
-    # Add user message
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+with col2:
+    st.subheader("Stress & Recovery")
+    fig_stress = px.line(df, x="Date", y=["Stress Level", "Recovery (%)"], title="Stress vs Recovery")
+    st.plotly_chart(fig_stress, use_container_width=True)
 
-    # Generate assistant response
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            response = client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=st.session_state.messages,
-                temperature=0.7,
-                max_tokens=800
-            )
-            reply = response.choices[0].message.content
-            st.markdown(reply)
+    st.subheader("Body Budget Fluctuations")
+    fig_budget = px.area(df, x="Date", y="Body Budget", title="Daily Body Budget")
+    st.plotly_chart(fig_budget, use_container_width=True)
 
-    # Add assistant reply to history
-    st.session_state.messages.append({"role": "assistant", "content": reply})
+# Summary metrics
+st.header("Key Insights")
+col_a, col_b, col_c, col_d = st.columns(4)
+col_a.metric("Average HRV", f"{df['HRV (ms)'].mean():.1f} ms")
+col_b.metric("Average Sleep", f"{df['Sleep Score'].mean():.0f}")
+col_c.metric("Stress Trend", "Moderate")
+col_d.metric("Recovery State", "Balanced")
 
-# Sidebar information
-with st.sidebar:
-    st.header("About RelapsGuard")
-    st.info("This app provides real-time support for nervous system awareness and relapse prevention using advanced AI.")
-    st.caption("Powered by Llama 3.1 8B Instant via Groq")
-    st.caption("Model: llama-3.1-8b-instant")
+st.caption("Data shown is simulated. Connect wearable for real metrics.")
